@@ -13,14 +13,14 @@
 ;; Shape parameters ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
-(def nrows 4)
-(def ncols 5)
+(def nrows 5)
+(def ncols 6)
 
 (def α (/ π 12))                        ; curvature of the columns
 (def β (/ π 36))                        ; curvature of the rows
 (def centerrow (- nrows 3))             ; controls front-back tilt
-(def centercol 4)                       ; controls left-right tilt / tenting (higher number is more tenting)
-(def tenting-angle (/ π 4))            ; or, change this for more precise tenting control
+(def centercol 2)                       ; controls left-right tilt / tenting (higher number is more tenting)
+(def tenting-angle (/ π 10))            ; or, change this for more precise tenting control
 (def column-style
   (if (> nrows 5) :orthographic :standard))  ; options include :standard, :orthographic, and :fixed
 ; (def column-style :fixed)
@@ -31,8 +31,9 @@
   :else [0 0 0]))
 
 (def thumb-offsets [6 -3 -6])
+(def thumb-start-col 0)
 
-(def keyboard-z-offset 7)               ; controls overall height; original=9 with centercol=3; use 16 for centercol=2
+(def keyboard-z-offset 30)               ; controls overall height; original=9 with centercol=3; use 16 for centercol=2
 
 (def extra-width 2.5)                   ; extra space between the base of keys; original= 2
 (def extra-height 1.0)                  ; original= 0.5
@@ -46,10 +47,10 @@
 ;;   http://patentimages.storage.googleapis.com/EP0219944A2/imgf0002.png
 ;; Fixed-z overrides the z portion of the column ofsets above.
 ;; NOTE: THIS DOESN'T WORK QUITE LIKE I'D HOPED.
-; (def fixed-angles [(deg2rad 10) (deg2rad 10) 0 0 0 (deg2rad -15) (deg2rad -15)])
-; (def fixed-x [-41.5 -22.5 0 20.3 41.4 65.5 89.6])  ; relative to the middle finger
-; (def fixed-z [12.1    8.3 0  5   10.7 14.5 17.5])
-; (def fixed-tenting (deg2rad 0))
+(def fixed-angles [(deg2rad 10) (deg2rad 10) 0 0 0 (deg2rad -15) (deg2rad -15)])
+(def fixed-x [-41.5 -22.5 0 20.3 41.4 65.5 89.6])  ; relative to the middle finger
+(def fixed-z [12.1    8.3 0  5   10.7 14.5 17.5])
+(def fixed-tenting (deg2rad 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; General variables ;;
@@ -289,7 +290,7 @@
 ;;;;;;;;;;;;
 
 (def thumborigin
-  (map + (key-position 1 cornerrow [(/ mount-width 2) (- (/ mount-height 2)) 0])
+  (map + (key-position thumb-start-col cornerrow [(/ mount-width 2) (- (/ mount-height 2)) 0])
          thumb-offsets))
 ; (pr thumborigin)
 
@@ -759,4 +760,4 @@
 
 
 
-(defn -main [dum] 1)  ; dummy to make it easier to batch
+(defn -main [] 1)  ; dummy to make it easier to batch
