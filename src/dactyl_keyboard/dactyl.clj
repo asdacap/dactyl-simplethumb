@@ -31,7 +31,9 @@
   :else [0 0 0]))
 
 (def thumb-offsets [-2 -3 10])
-(def thumb-start-col 1)
+(def thumb-start-col 2)
+(def thumbkey-count 3)
+
 
 (def keyboard-z-offset 20)               ; controls overall height; original=9 with centercol=3; use 16 for centercol=2
 
@@ -372,7 +374,7 @@
        ;(rotate (deg2rad 10) [0 0 1])
     ;(rotate (deg2rad -10) [0 1 0])
        (translate thumborigin)
-       (translate [-50 -60 30])
+       (translate [-20 -60 30])
        ))
 
 (def thumblength 30)
@@ -425,8 +427,48 @@
 (def thumb-post-bl (translate [(+ (/ mount-width -2) post-adj) (+ (/ mount-height -2) post-adj) 0] web-post))
 (def thumb-post-br (translate [(- (/ mount-width 2) post-adj)  (+ (/ mount-height -2) post-adj) 0] web-post))
 
-(def thumb-connectors ()
-  )
+(def thumb-connectors 
+  (
+   union
+   (for [x (range 0 thumb-start-col)]
+     (union 
+      (triangle-hulls    
+             ((partial key-place x cornerrow) web-post-bl)
+             ((partial thumb-n-place (dec (- thumb-start-col x))) thumb-post-tl)
+             ((partial key-place x cornerrow) web-post-br)
+             ((partial thumb-n-place (dec (- thumb-start-col x))) thumb-post-tr)
+       ))
+   )
+   (for [x (range 0 (dec thumb-start-col))]
+     (union 
+      (triangle-hulls    
+             ((partial key-place x cornerrow) web-post-br)
+             ((partial thumb-n-place (dec (- thumb-start-col x))) thumb-post-tr)
+             ((partial key-place (inc x) cornerrow) web-post-bl)
+             ((partial thumb-n-place (- (- thumb-start-col x) 2)) thumb-post-tl)
+       ))
+   )
+   (for [x (range 0 (dec thumbkey-count))]
+     (union 
+      (triangle-hulls    
+             ((partial thumb-n-place x) thumb-post-tl)
+             ((partial thumb-n-place x) thumb-post-bl)
+             ((partial thumb-n-place (inc x)) thumb-post-tr)
+             ((partial thumb-n-place (inc x)) thumb-post-br)
+       ))
+   )
+
+   (triangle-hulls    
+     ((partial key-place (dec thumb-start-col) cornerrow) web-post-br)
+     ((partial key-place thumb-start-col cornerrow) web-post-bl)
+     ((partial thumb-n-place 0) thumb-post-tr)
+     ((partial key-place thumb-start-col lastrow) web-post-tl)
+     ((partial thumb-n-place 0) thumb-post-br)
+     ((partial key-place thumb-start-col lastrow) web-post-bl)
+     ((partial key-place thumb-start-col lastrow) web-post-br)
+   )
+))
+
 (def thumb-connectorsaha
   (union
       (triangle-hulls    ; top two
@@ -523,8 +565,6 @@
              (key-place 4 cornerrow web-post-bl))
   ))
 
-(def thumbkey-count 3)
-
 (def thumb-wall
   (union
    ; thumb walls
@@ -556,58 +596,8 @@
 
    ;connection to main
    (wall-brace (partial thumb-n-place 0) 0 -1 thumb-post-br (partial key-place (+ thumb-start-col 0) lastrow) 0 -1 thumb-post-br)
-   (wall-brace (partial thumb-n-place thumb-start-col) 0 -1 thumb-post-br (partial key-place (+ thumb-start-col 0) lastrow) 0 -1 thumb-post-br)
+   (wall-brace (partial thumb-n-place thumb-start-col) 0 1 thumb-post-tr (partial left-key-place cornerrow -1) -1 0 web-post)
    ))
-
-(def thumb-wall-old
-  (union
-   ; thumb walls
-   (wall-brace thumb-mr-place  0 -1 web-post-br thumb-tr-place  0 -1 thumb-post-br)
-   (wall-brace thumb-mr-place  0 -1 web-post-br thumb-mr-place  0 -1 web-post-bl)
-   (wall-brace thumb-br-place  0 -1 web-post-br thumb-br-place  0 -1 web-post-bl)
-   (wall-brace thumb-ml-place -0.3  1 web-post-tr thumb-ml-place  0  1 web-post-tl)
-   (wall-brace thumb-bl-place  0  1 web-post-tr thumb-bl-place  0  1 web-post-tl)
-   (wall-brace thumb-br-place -1  0 web-post-tl thumb-br-place -1  0 web-post-bl)
-   (wall-brace thumb-bl-place -1  0 web-post-tl thumb-bl-place -1  0 web-post-bl)
-   ; thumb corners
-   (wall-brace thumb-br-place -1  0 web-post-bl thumb-br-place  0 -1 web-post-bl)
-   (wall-brace thumb-bl-place -1  0 web-post-tl thumb-bl-place  0  1 web-post-tl)
-   ; thumb tweeners
-   (wall-brace thumb-mr-place  0 -1 web-post-bl thumb-br-place  0 -1 web-post-br)
-   (wall-brace thumb-ml-place  0  1 web-post-tl thumb-bl-place  0  1 web-post-tr)
-   (wall-brace thumb-bl-place -1  0 web-post-bl thumb-br-place -1  0 web-post-tl)
-   (wall-brace thumb-tr-place  0 -1 thumb-post-br (partial key-place (+ thumb-start-col 0) lastrow)  0 -1 web-post-br)
-   ;clunky bit on the top left thumb connection  (normal connectors don't work well)
-   (bottom-hull
-     (left-key-place cornerrow -1 (translate (wall-locate2 -1 0) web-post))
-     (left-key-place cornerrow -1 (translate (wall-locate3 -1 0) web-post))
-     (thumb-ml-place (translate (wall-locate2 -0.3 1) web-post-tr))
-     (thumb-ml-place (translate (wall-locate3 -0.3 1) web-post-tr)))
-   (hull
-     (left-key-place cornerrow -1 (translate (wall-locate2 -1 0) web-post))
-     (left-key-place cornerrow -1 (translate (wall-locate3 -1 0) web-post))
-     (thumb-ml-place (translate (wall-locate2 -0.3 1) web-post-tr))
-     (thumb-ml-place (translate (wall-locate3 -0.3 1) web-post-tr))
-     (thumb-tl-place thumb-post-tl))
-   (hull
-     (left-key-place cornerrow -1 web-post)
-     (left-key-place cornerrow -1 (translate (wall-locate1 -1 0) web-post))
-     (left-key-place cornerrow -1 (translate (wall-locate2 -1 0) web-post))
-     (left-key-place cornerrow -1 (translate (wall-locate3 -1 0) web-post))
-     (thumb-tl-place thumb-post-tl))
-   (hull
-     (left-key-place cornerrow -1 web-post)
-     (left-key-place cornerrow -1 (translate (wall-locate1 -1 0) web-post))
-     (key-place 0 cornerrow web-post-bl)
-     (key-place 0 cornerrow (translate (wall-locate1 -1 0) web-post-bl))
-     (thumb-tl-place thumb-post-tl))
-   (hull
-     (thumb-ml-place web-post-tr)
-     (thumb-ml-place (translate (wall-locate1 -0.3 1) web-post-tr))
-     (thumb-ml-place (translate (wall-locate2 -0.3 1) web-post-tr))
-     (thumb-ml-place (translate (wall-locate3 -0.3 1) web-post-tr))
-     (thumb-tl-place thumb-post-tl))
-  ))
 
 
 ;;;;;;;;;;
