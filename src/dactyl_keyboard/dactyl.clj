@@ -268,8 +268,7 @@
   (map - (key-position 0 row [(* mount-width -0.5) (* direction mount-height 0.5) 0]) [left-wall-x-offset 0 left-wall-z-offset]) )
 
 (defn left-key-place [row direction shape]
-  (translate (left-key-position row direction) shape))
-
+  (key-place 0 row shape))
 
 (defn wall-locate1 [dx dy] [(* dx wall-thickness) (* dy wall-thickness) -1])
 (defn wall-locate2 [dx dy] [(* dx wall-xy-offset) (* dy wall-xy-offset) wall-z-offset])
@@ -596,7 +595,7 @@
 
    ;connection to main
    (wall-brace (partial thumb-n-place 0) 0 -1 thumb-post-br (partial key-place (+ thumb-start-col 0) lastrow) 0 -1 thumb-post-br)
-   (wall-brace (partial thumb-n-place thumb-start-col) 0 1 thumb-post-tr (partial left-key-place cornerrow -1) -1 0 web-post)
+   (wall-brace (partial thumb-n-place thumb-start-col) 0 1 thumb-post-tr (partial left-key-place cornerrow -1) -1 0 web-post-bl)
    ))
 
 
@@ -615,18 +614,12 @@
    (for [y (range 1 lastrow)] (key-wall-brace lastcol (dec y) 1 0 web-post-br lastcol y 1 0 web-post-tr))
    (key-wall-brace lastcol cornerrow 0 -1 web-post-br lastcol cornerrow 1 0 web-post-br)
    ; left wall
-   (for [y (range 0 lastrow)] (union (wall-brace (partial left-key-place y 1)       -1 0 web-post (partial left-key-place y -1) -1 0 web-post)
-                                     (hull (key-place 0 y web-post-tl)
-                                           (key-place 0 y web-post-bl)
-                                           (left-key-place y  1 web-post)
-                                           (left-key-place y -1 web-post))))
-   (for [y (range 1 lastrow)] (union (wall-brace (partial left-key-place (dec y) -1) -1 0 web-post (partial left-key-place y  1) -1 0 web-post)
-                                     (hull (key-place 0 y       web-post-tl)
-                                           (key-place 0 (dec y) web-post-bl)
-                                           (left-key-place y        1 web-post)
-                                           (left-key-place (dec y) -1 web-post))))
-   (wall-brace (partial key-place 0 0) 0 1 web-post-tl (partial left-key-place 0 1) 0 1 web-post)
-   (wall-brace (partial left-key-place 0 1) 0 1 web-post (partial left-key-place 0 1) -1 0 web-post)
+   (for [y (range 0 lastrow)] (union (wall-brace (partial left-key-place y 1)       -1 0 web-post-tl (partial left-key-place y -1) -1 0 web-post-bl)
+                                     ))
+   (for [y (range 1 lastrow)] (union (wall-brace (partial left-key-place (dec y) -1) -1 0 web-post-bl (partial left-key-place y  1) -1 0 web-post-tl)
+                                     ))
+
+   (wall-brace (partial key-place 0 0) 0 1 web-post-tl (partial key-place 0 0) -1 0 web-post-tl)
    ; front wall
    (key-wall-brace lastcol 0 0 1 web-post-tr lastcol 0 1 0 web-post-tr)
    (for [x (range thumb-start-col 3)] 
