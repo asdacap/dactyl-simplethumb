@@ -6,7 +6,6 @@
             [scad-clj.model :refer :all]
             [unicode-math.core :refer :all]))
 
-
 (defn deg2rad [degrees]
   (* (/ degrees 180) pi))
 
@@ -15,31 +14,40 @@
 ;;;;;;;;;;;;;;;;;;;;;;
 
 (def nrows 5)
-(def ncols 5)
+(def ncols 6)
 
-(def α (/ π 12))                        ; curvature of the columns
+(def α (/ π 10))                        ; curvature of the columns
 (def β (/ π 36))                        ; curvature of the rows
 (def centerrow (- nrows 3))             ; controls front-back tilt
 (def centercol 2)                       ; controls left-right tilt / tenting (higher number is more tenting)
 (def tenting-angle (/ π 8))            ; or, change this for more precise tenting control
-(def column-style
-  (if (> nrows 5) :orthographic :standard))  ; options include :standard, :orthographic, and :fixed
-; (def column-style :fixed)
+;(def column-style
+;  (if (> nrows 5) :orthographic :standard))  ; options include :standard, :orthographic, and :fixed
+(def column-style :experiment)
 
+;(defn column-offset [column] (cond
+;  (= column 2) [0 2.82 -4.5]
+;  (>= column 4) [0 -12 5.64]            ; original [0 -5.8 5.64]
+;  :else [0 0 0]))
 (defn column-offset [column] (cond
+  (= column 0) [0 -2 1.5]
   (= column 2) [0 2.82 -4.5]
-  (>= column 4) [0 -12 5.64]            ; original [0 -5.8 5.64]
+  (= column 4) [0 -12 5.64]
+  (> column 4) [0 -12 6.64]            ; original [0 -5.8 5.64]
   :else [0 0 0]))
 
-(def thumb-offsets [0 0 0])
+(def thumb-offsets [2 0 -5])
 (def thumb-start-col 1)
 (def thumbkey-count 3)
 
+(def thumb-length-offset 0)
+(def thumb-step-angle 6)
+(def thumb-start-angle 40)
 
 (def keyboard-z-offset 20)               ; controls overall height; original=9 with centercol=3; use 16 for centercol=2
 
-(def extra-width 2.5)                   ; extra space between the base of keys; original= 2
-(def extra-height 1.0)                  ; original= 0.5
+(def extra-width 2)                   
+(def extra-height 0)               
 
 (def wall-z-offset -10)                 ; length of the first downward-sloping part of the wall (negative)
 (def wall-xy-offset 2)                  ; offset in the x and/or y direction for the first downward-sloping part of the wall (negative)
@@ -72,7 +80,7 @@
 
 (def sa-profile-key-height 12.7)
 
-(def plate-thickness 4)
+(def plate-thickness 3)
 (def mount-width (+ keyswitch-width 3))
 (def mount-height (+ keyswitch-height 3))
 
@@ -91,8 +99,13 @@
                       (hull (->> 
                                  (translate [0
                                              (+ (/ 1.5 2) (/ keyswitch-height 2))
-                                             (/ plate-thickness 2)]))))
-        plate-half (union top-wall left-wall (with-fn 100 side-nub))]
+                                    (/ plate-thickness 2)]))))
+         top-wall-extra (->> (cube (/ keyswitch-width 2) 0.4 1)
+                      (translate [0
+                                  (+ (/ -0.3 2) (/ keyswitch-height 2))
+                                  (- plate-thickness (/ 1 2))]))
+        ;plate-half (union top-wall left-wall (with-fn 100 side-nub))]
+        plate-half (union top-wall left-wall top-wall-extra)]
     (union plate-half
            (->> plate-half
                 (mirror [1 0 0])
@@ -148,9 +161,12 @@
 (def columns (range 0 ncols))
 (def rows (range 0 nrows))
 
-(def cap-top-height (+ plate-thickness sa-profile-key-height))
+(def cap-top-height (+ plate-thickness sa-profile-key-height -2))
 (def row-radius (+ (/ (/ (+ mount-height extra-height) 2)
                       (Math/sin (/ α 2)))
+                   cap-top-height))
+(defn row-radius-angle [a] (+ (/ (/ (+ mount-height extra-height) 2)
+                      (Math/sin (/ a 2)))
                    cap-top-height))
 (def column-radius (+ (/ (/ (+ mount-width extra-width) 2)
                          (Math/sin (/ β 2)))
@@ -184,11 +200,28 @@
                                 (translate-fn [0 0 (+ row-radius (nth fixed-z column))])
                                 (rotate-y-fn  fixed-tenting)
                                 (translate-fn [0 (second (column-offset column)) 0])
-                                )]
+                                )
+        place-experiment (let [
+                               [cox coy coz] (column-offset column)
+                               orr (row-radius-angle α)
+                               F (/ orr (- orr coz))
+                               na (Math/atan (* (Math/tan α) F))
+                               row-radius (row-radius-angle na)
+                               ]
+                           (->> shape
+                          (translate-fn [0 0 (- row-radius)])
+                          (rotate-x-fn  (* na (- centerrow row)))
+                          (translate-fn [0 0 row-radius])
+                          (translate-fn [0 0 (- column-radius)])
+                          (rotate-y-fn  column-angle)
+                          (translate-fn [0 0 column-radius])
+                          (translate-fn [cox coy coz])))
+        ]
     (->> (case column-style
-          :orthographic placed-shape-ortho
-          :fixed        placed-shape-fixed
-                        placed-shape)
+           :orthographic placed-shape-ortho
+           :fixed        placed-shape-fixed
+           :experiment place-experiment
+           placed-shape)
          (rotate-y-fn  tenting-angle)
          (translate-fn [0 0 keyboard-z-offset]))))
 
@@ -266,6 +299,7 @@
 (defn wall-locate1 [dx dy] [(* dx wall-thickness) (* dy wall-thickness) -1])
 (defn wall-locate2 [dx dy] [(* dx wall-xy-offset) (* dy wall-xy-offset) wall-z-offset])
 (defn wall-locate3 [dx dy] [(* dx (+ wall-xy-offset wall-thickness)) (* dy (+ wall-xy-offset wall-thickness)) wall-z-offset])
+(defn wall-locate4 [dx dy] [(* dx (+ wall-xy-offset (/ mount-width 2))) (* dy (+ wall-xy-offset (/ mount-height 2))) wall-z-offset])
 
 (defn wall-brace [place1 dx1 dy1 post1 place2 dx2 dy2 post2]
   (union
@@ -293,7 +327,7 @@
 ;; Web Connectors ;;
 ;;;;;;;;;;;;;;;;;;;;
 
-(def web-thickness 3.5)
+(def web-thickness 3)
 (def post-size 0.1)
 (def web-post (->> (cube post-size post-size web-thickness)
                    (translate [0 0 (+ (/ web-thickness -2)
@@ -348,35 +382,57 @@
              (key-place column (inc row) web-post-tr)
              (key-place (inc column) row web-post-bl)
              (key-place (inc column) (inc row) web-post-tl)))
+
+          [
+            (triangle-hulls
+             (key-place 3 4 web-post-tr)
+             (key-place 3 4 web-post-br)
+             (key-place 4 3 web-post-bl)
+             )
+           ]
           )))
+
+(def key-holes-space
+  (apply union
+         (for [column columns
+               row rows
+               :when (keycond row column)]
+           (->> 
+            (triangle-hulls
+             (key-place column row web-post-tl)
+             (key-place column row web-post-tr)
+             (key-place column row web-post-bl)
+             (key-place column row web-post-br))))))
 
 ;;;;;;;;;;;;
 ;; Thumbs ;;
 ;;;;;;;;;;;;
 
+(def thumb-length 
+  (+ (* mount-width 1.5)
+     (/ (+ mount-height extra-height) (Math/sin (deg2rad thumb-step-angle)))
+     )
+  )
+
 (def thumborigin
   (map + (key-position (dec thumb-start-col) lastrow [0 0 0])
          thumb-offsets))
 
-(def thumblength 140)
-(def thumbkeysize 0)
-(def thumbkeyangle 8)
-(def thumbkeystartangle 40)
-
 (defn thumborigintransform [shape]
   (->> shape
        ;(rotate (deg2rad 10) [0 0 1])
-       (translate [(* thumblength (sin (deg2rad thumbkeystartangle))) (* (* thumblength (cos (deg2rad thumbkeystartangle))) -1) 0])
-       (rotate (deg2rad -20) [0 1 0])
-       (rotate (deg2rad 30) [1 0 0])
+       (translate [(* thumb-length (sin (deg2rad thumb-start-angle))) (* (* thumb-length (cos (deg2rad thumb-start-angle))) -1) 0])
+       (rotate (deg2rad -35) [0 1 0])
+       (rotate (deg2rad 45) [1 0 0])
        (translate [0 -5 -2])
        (translate thumborigin)
        ))
 
 (defn thumb-n-place [n, shape]
   (->> shape
-       (translate [0 (- thumblength thumbkeysize) 0])
-       (rotate (deg2rad (+ (* n thumbkeyangle) thumbkeystartangle)) [0 0 1])
+       (rotate (deg2rad -5) [0 1 0])
+       (translate [0 (- thumb-length thumb-length-offset) 0])
+       (rotate (deg2rad (+ (* n thumb-step-angle) thumb-start-angle)) [0 0 1])
        thumborigintransform
        ))
 
@@ -412,7 +468,7 @@
 
 (def thumb
   (union
-   (thumb-1x-layout single-plate)
+   (thumb-1x-layout (rotate (deg2rad 90) [0 0 1] single-plate))
    (thumb-1x-layout larger-plate)
    ))
 
@@ -421,16 +477,26 @@
 (def thumb-post-bl (translate [(+ (/ mount-width -2) post-adj) (+ (/ mount-height -1.15) post-adj) 0] web-post))
 (def thumb-post-br (translate [(- (/ mount-width 2) post-adj)  (+ (/ mount-height -1.15) post-adj) 0] web-post))
 
+(def thumb-key-space
+  (apply union
+         (for [x (range 0 thumbkey-count)]
+           (->> 
+            (triangle-hulls
+             (thumb-n-place x thumb-post-tl)
+             (thumb-n-place x thumb-post-tr)
+             (thumb-n-place x thumb-post-bl)
+             (thumb-n-place x thumb-post-br))))))
+
 (def thumb-connectors 
   (
    union
    (for [x (range 0 thumb-start-col)]
      (union 
       (triangle-hulls    
-             ((partial key-place x cornerrow) web-post-bl)
              ((partial thumb-n-place (dec (- thumb-start-col x))) thumb-post-tl)
-             ((partial key-place x cornerrow) web-post-br)
+             ((partial key-place x cornerrow) web-post-bl)
              ((partial thumb-n-place (dec (- thumb-start-col x))) thumb-post-tr)
+             ((partial key-place x cornerrow) web-post-br)
        ))
    )
    (for [x (range 0 (dec thumb-start-col))]
@@ -541,87 +607,125 @@
    thumb-wall
  ))
 
+(def board-wall-thickness 1.4)
+(defn board-space 
+  ([board-space-size port-size] (board-space board-space-size port-size [0 0 0 1] (translate [-4 6 0])))
+  ([board-space-size port-size reference-key transform-fn] (board-space board-space-size port-size reference-key transform-fn cube))
+  ([board-space-size port-size reference-key transform-fn port-fn]
+   (let [[bw bl bh] board-space-size
+         [pw pl ph] port-size
+         ;epw (+ pw bw)
+         epw pw
+         port-inset 5
+         [rc rr wx wy] reference-key
+         board-position (key-position rc rr (wall-locate4 wx wy))
+         ]
+     (union
+       (->> 
+         (union
+           (apply cube board-space-size)
+           (->>
+             (port-fn epw pl ph)
+             ;jtranslate [(+ (/ bw -2) (/ epw 2)) (+ (/ bl 2) (/ pl 2) (- port-inset))])
+             (translate [(+ (/ bw 2) (/ epw 2)) (+ (/ bl 2) (/ pl 2) (- port-inset))])
+             )
+           )
+         (translate [0 (/ bl -2) (+ (/ bh 2) board-wall-thickness)])
+         transform-fn
+         (translate (assoc (vec board-position) 2 0))
+         )
+       (->> 
+         (union
+           (apply cube board-space-size)
+           (->>
+             (port-fn epw pl ph)
+             ;(translate [(+ (/ bw -2) (/ epw 2)) (+ (/ bl 2) (/ pl 2) (- port-inset))])
+             (translate [(+ (/ bw 2) (/ epw 2)) (+ (/ bl 2) (/ pl 2) (- port-inset))])
+             )
+           )
+         (translate [0 (/ bl -2) (+ (/ bh 2) board-wall-thickness)])
+         (rotate (deg2rad 20) [0 0 1]) ; for easier insert
+         transform-fn
+         (translate (assoc (vec board-position) 2 0))
+         )
+       )))
+)
 
-(def rj9-start  (map + [0 -3  0] (key-position 0 0 (map + (wall-locate3 0 1) [0 (/ mount-height  2) 0]))))
-(def rj9-position  [(first rj9-start) (second rj9-start) 11])
-(def rj9-cube   (cube 14.78 13 22.38))
-(def rj9-space  (translate rj9-position rj9-cube))
-(def rj9-holder (translate rj9-position
-                  (difference rj9-cube
-                              (union (translate [0 2 0] (cube 10.78  9 18.38))
-                                     (translate [0 0 5] (cube 10.78 13  5))))))
+(defn board-holder 
+  ([board-space-size port-size] (board-holder board-space-size port-size [0 0 0 1] (translate [-4 6 0])))
+  ([board-space-size port-size reference-key transform-fn] (board-holder board-space-size port-size reference-key transform-fn cube))
+  ([board-space-size port-size reference-key transform-fn port-fn]
+  (let [[bw bl bh] board-space-size
+        [rc rr wx wy] reference-key
+        board-position (key-position rc rr (wall-locate4 wx wy))
+        ]
+  (union
+    (difference
+      (->> 
+        (difference
+          (union
+            (translate [0 0 (/ board-wall-thickness -2)]
+                       (color [0 0 1]
+                              (apply cube (map + [(* board-wall-thickness 2) (* board-wall-thickness 2) board-wall-thickness] board-space-size))))
+            )
+          (->>
+            (apply cube [board-wall-thickness (- bl (/ board-wall-thickness 2)) bh])
+            (color [1 1 0])
+            (translate [(+ (/ bw 2) (/ board-wall-thickness 2)) 0 0])
+            )
+          (->>
+            (apply cube [board-wall-thickness bl (/ bh 3)])
+            (color [0 1 1])
+            (translate [(+ (/ bw 2) (/ board-wall-thickness 2)) 0 0])
+            (translate [0 0 (/ bh 3)])
+            )
+          (->>
+            (apply cube [board-wall-thickness bl (/ bh 3)])
+            (color [0 1 1])
+            (translate [(+ (/ bw 2) (/ board-wall-thickness 2)) 0 0])
+            (translate [0 0 (/ bh -3)])
+            )
+          )
+        (translate [0 (/ bl -2) (+ (/ bh 2) board-wall-thickness)])
+        transform-fn
+        (translate (assoc (vec board-position) 2 0))
+        )
+      (board-space board-space-size port-size reference-key transform-fn port-fn)
+      )
+    )))
+  )
 
-(def usb-holder-position (key-position 1 0 (map + (wall-locate2 0 1) [0 (/ mount-height 2) 0])))
-(def usb-holder-size [6.5 10.0 13.6])
-(def usb-holder-thickness 4)
-(def usb-holder
-    (->> (cube (+ (first usb-holder-size) usb-holder-thickness) (second usb-holder-size) (+ (last usb-holder-size) usb-holder-thickness))
-         (translate [(first usb-holder-position) (second usb-holder-position) (/ (+ (last usb-holder-size) usb-holder-thickness) 2)])))
-(def usb-holder-hole
-    (->> (apply cube usb-holder-size)
-         (translate [(first usb-holder-position) (second usb-holder-position) (/ (+ (last usb-holder-size) usb-holder-thickness) 2)])))
-
-(def teensy-width 20)
-(def teensy-height 12)
-(def teensy-length 33)
-(def teensy2-length 53)
-(def teensy-pcb-thickness 2)
-(def teensy-holder-width  (+ 7 teensy-pcb-thickness))
-(def teensy-holder-height (+ 6 teensy-width))
-(def teensy-offset-height 5)
-(def teensy-holder-top-length 18)
-(def teensy-top-xy (key-position 0 (- centerrow 1) (wall-locate2 -1 0)))
-(def teensy-bot-xy (key-position 0 (+ centerrow 1) (wall-locate2 -1 0)))
-(def teensy-holder-length (- (second teensy-top-xy) (second teensy-bot-xy)))
-(def teensy-holder-offset (/ teensy-holder-length -2))
-(def teensy-holder-top-offset (- (/ teensy-holder-top-length 2) teensy-holder-length))
-
-(def teensy-holder
-    (->>
-        (union
-          (->> (cube 3 teensy-holder-length (+ 6 teensy-width))
-               (translate [1.5 teensy-holder-offset 0]))
-          (->> (cube teensy-pcb-thickness teensy-holder-length 3)
-               (translate [(+ (/ teensy-pcb-thickness 2) 3) teensy-holder-offset (- -1.5 (/ teensy-width 2))]))
-          (->> (cube 4 teensy-holder-length 4)
-               (translate [(+ teensy-pcb-thickness 5) teensy-holder-offset (-  -1 (/ teensy-width 2))]))
-          (->> (cube teensy-pcb-thickness teensy-holder-top-length 3)
-               (translate [(+ (/ teensy-pcb-thickness 2) 3) teensy-holder-top-offset (+ 1.5 (/ teensy-width 2))]))
-          (->> (cube 4 teensy-holder-top-length 4)
-               (translate [(+ teensy-pcb-thickness 5) teensy-holder-top-offset (+ 1 (/ teensy-width 2))])))
-        (translate [(- teensy-holder-width) 0 0])
-        (translate [1 0 0])
-        (translate [(first teensy-top-xy)
-                    (- (second teensy-top-xy) 1)
-                    (/ (+ 6 teensy-width) 2)])
-           ))
 
 (defn screw-insert-shape [bottom-radius top-radius height]
-   (union (cylinder [bottom-radius top-radius] height)
-          (translate [0 0 (/ height 2)] (sphere top-radius))))
+   (union 
+     (binding [*fn* 30]
+     (cylinder [bottom-radius top-radius] (+ height 3)))
+          ;(translate [0 0 (/ height 2)] (sphere top-radius)) it broke
+          ))
+
 
 (defn screw-insert [column row bottom-radius top-radius height]
   (let [shift-right   (= column lastcol)
         shift-left    (= column 0)
         shift-up      (and (not (or shift-right shift-left)) (= row 0))
         shift-down    (and (not (or shift-right shift-left)) (>= row lastrow))
-        position      (if shift-up     (key-position column row (map + (wall-locate2  0  1) [0 (/ mount-height 2) 0]))
-                       (if shift-down  (key-position column row (map - (wall-locate2  0 -1) [0 (/ mount-height 2) 0]))
-                        (if shift-left (map + (left-key-position row 0) (wall-locate2 0 0))
-                                       (key-position column row (map + (wall-locate2  1  0) [(/ mount-width 2) 0 0])))))
+        position      (if shift-up     (key-position column row (wall-locate4  0  1))
+                        (if shift-down  (key-position column row (wall-locate4  0 -1))
+                          (if shift-left (key-position column row (wall-locate4 -1 0))
+                            (key-position column row (wall-locate4  1  0)))))
         ]
     (->> (screw-insert-shape bottom-radius top-radius height)
          (translate [(first position) (second position) (/ height 2)])
-    )))
+         )))
 
 (defn screw-insert-all-shapes [bottom-radius top-radius height]
-  (union (screw-insert 0 0         bottom-radius top-radius height)
+  (union (screw-insert 1 0         bottom-radius top-radius height)
          (screw-insert 0 (- lastrow 1)   bottom-radius top-radius height)
          (screw-insert 3 (+ lastrow 0)  bottom-radius top-radius height)
          (screw-insert 3 0         bottom-radius top-radius height)
          (screw-insert lastcol 1   bottom-radius top-radius height)
          ))
-(def screw-insert-height 3.8)
+(def screw-insert-height 4.2)
 (def screw-insert-bottom-radius (/ 5.31 2))
 (def screw-insert-top-radius (/ 5.1 2))
 (def screw-insert-holes  (screw-insert-all-shapes screw-insert-bottom-radius screw-insert-top-radius screw-insert-height))
@@ -650,73 +754,93 @@
         (key-place column row (translate [0 0 0] (wire-post -1 6)))
         (key-place column row (translate [5 0 0] (wire-post  1 0)))))))
 
+(def micro-usb-size [3.2 16 9])
+(def pro-micro-space-size [2 34.5 19.3])
+(def pro-micro [pro-micro-space-size micro-usb-size])
 
-(def model-right (difference
-                   (union
-                    key-holes
-                    connectors
-                    thumb
-                    thumb-connectors
-                    (difference (union case-walls
-                                       screw-insert-outers
-                                       teensy-holder
-                                       usb-holder
-                                       )
-                                rj9-space
-                                usb-holder-hole
-                                screw-insert-holes)
-                    rj9-holder
-                    ; wire-posts
-                    ; thumbcaps
-                    ; caps
-                    )
-                   (translate [0 0 -20] (cube 350 350 40))
-                  ))
+(def mini-usb-size [4.2 16 8.5])
+(def teensy-space-size [3.5 52 19])
+(def teensy [teensy-space-size mini-usb-size [0 0 -0.8 1] (partial translate [0 0 0])])
+
+(def trrs-port-size [6 16 7])
+(def trrs-space-size [2 14 26])
+(def trrs [trrs-space-size trrs-port-size [0 2 -1 0] 
+           (fn [it] (->> it
+                         (rotate (deg2rad 90) [0 0 1])
+                         (mirror [0 1 0])
+                         )) 
+           ])
+(def trrs2 [trrs-space-size trrs-port-size [0 2 -1 0] 
+           (fn [it] (->> it
+                         (rotate (deg2rad 90) [0 0 1])
+                         )) 
+           ])
+
+(def mcp-io-board [[3.5 37.5 20.5] [0 0 0] [0 0 -1 1] 
+           (fn [it] (->> it
+                         (rotate (deg2rad -18) [0 0 1])
+                         (translate [4 -2 0])
+                         )) 
+           ])
+
+(defn model-right [boards] 
+  (difference
+    (union
+      key-holes
+      connectors
+      thumb
+      thumb-connectors
+      (apply union (for [b boards] (apply board-holder b)))
+      case-walls
+      screw-insert-outers
+      )
+    (apply union (for [b boards] (apply board-space b)))
+    screw-insert-holes
+    (translate [0 0 -100] (cube 200 200 200)) ; the ground
+    ))
 
 (spit "things/right.scad"
-      (write-scad model-right))
+      (write-scad (model-right [teensy trrs])))
+
+(spit "things/right-port.scad"
+      (write-scad (intersection 
+                    (model-right [trrs])
+                    (translate [-120 0 4] (cube 200 30 50))
+                             )))
+
+
+(spit "things/right-thumb.scad"
+      (write-scad (intersection 
+                    (model-right [trrs])
+                    (translate [-100 -55 20] (cube 200 70 100))
+                             )))
 
 (spit "things/left.scad"
-      (write-scad (mirror [-1 0 0] model-right)))
+      (write-scad (mirror [-1 0 0] (model-right [trrs2 mcp-io-board]))))
 
-(spit "things/right-test.scad"
-      (write-scad
-                   (union
-                    key-holes
-                    connectors
-                    thumb
-                    thumb-connectors
-                    case-walls
-                    thumbcaps
-                    caps
-                    teensy-holder
-                    ; rj9-holder
-                    ; usb-holder-hole
-                    ; usb-holder-hole
-                    ; ; teensy-holder-hole
-                    ;             screw-insert-outers
-                    ;             teensy-screw-insert-holes
-                    ;             teensy-screw-insert-outers
-                    ;             usb-cutout
-                    ;             rj9-space
-                                ; wire-posts
-                  )))
+(spit "things/left-port.scad"
+      (write-scad (intersection 
+                    (mirror [-1 0 0] (model-right [trrs2 mcp-io-board]))
+                    (translate [120 25 4] (cube 200 80 50))
+                             )))
 
 (spit "things/right-plate.scad"
       (write-scad
-                   (cut
+        (extrude-linear {:height 2}
+        (projection 2
                      (translate [0 0 -0.1]
-                       (difference (union case-walls
-                                          teensy-holder
-                                          ; rj9-holder
-                                          screw-insert-outers)
+                       (difference (
+                                    union 
+                                    case-walls
+                                    key-holes-space
+                                    connectors
+                                    thumb-key-space
+                                    thumb-connectors
+                                    screw-insert-outers
+                                    )
                                    (translate [0 0 -10] screw-insert-screw-holes))
-                  ))))
-
-(spit "things/test.scad"
-      (write-scad
-         (difference usb-holder usb-holder-hole)))
-
+                       )))
+      ))
 
 
 (defn -main [] 1)  ; dummy to make it easier to batch
