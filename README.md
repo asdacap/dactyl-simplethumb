@@ -1,8 +1,8 @@
-# The Dactyl-ManuForm Keyboard
+# The Dactyl-Simplethumb Keyboard
 This is a fork of the [Dactyl Manuform](https://github.com/abstracthat/dactyl-manuform), which is a fork of [Dactyl](https://github.com/adereth/dactyl-keyboard), a parameterized, split-hand, concave, columnar, ergonomic keyboard.
 
 Some changes include:
-- Replaces the thumb cluster
+- Replaces the thumb cluster to something simple... get it? "Simplethumb"?
 - Make things smaller
 - The curvature is higher when the key is higher.
 - Added some board holder that exposes the board port directly. 
