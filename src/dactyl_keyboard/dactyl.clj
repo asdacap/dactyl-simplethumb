@@ -16,7 +16,7 @@
 (def nrows 5)
 (def ncols 6)
 
-(def α (/ π 10))                        ; curvature of the columns
+(def α (/ π 11))                        ; curvature of the columns
 (def β (/ π 36))                        ; curvature of the rows
 (def centerrow (- nrows 3))             ; controls front-back tilt
 (def centercol 2)                       ; controls left-right tilt / tenting (higher number is more tenting)
@@ -33,7 +33,7 @@
   (= column 0) [0 -2 1.5]
   (= column 2) [0 2.82 -4.5]
   (= column 4) [0 -12 5.64]
-  (> column 4) [0 -12 6.64]            ; original [0 -5.8 5.64]
+  (> column 4) [1 -12 6.64]            ; original [0 -5.8 5.64]
   :else [0 0 0]))
 
 (def thumb-offsets [2 0 -5])
@@ -42,7 +42,7 @@
 
 (def thumb-length-offset 0)
 (def thumb-step-angle 6)
-(def thumb-start-angle 40)
+(def thumb-start-angle 60)
 
 (def keyboard-z-offset 20)               ; controls overall height; original=9 with centercol=3; use 16 for centercol=2
 
@@ -725,7 +725,7 @@
          (screw-insert 3 0         bottom-radius top-radius height)
          (screw-insert lastcol 1   bottom-radius top-radius height)
          ))
-(def screw-insert-height 4.2)
+(def screw-insert-height 6.2)
 (def screw-insert-bottom-radius (/ 5.31 2))
 (def screw-insert-top-radius (/ 5.1 2))
 (def screw-insert-holes  (screw-insert-all-shapes screw-insert-bottom-radius screw-insert-top-radius screw-insert-height))
@@ -755,15 +755,18 @@
         (key-place column row (translate [5 0 0] (wire-post  1 0)))))))
 
 (def micro-usb-size [3.2 16 9])
-(def pro-micro-space-size [2 34.5 19.3])
-(def pro-micro [pro-micro-space-size micro-usb-size])
+(def pro-micro-space-size [3 34 19.3])
+(def pro-micro [pro-micro-space-size micro-usb-size [0 0 -0.8 1] (partial translate [0 0 0])])
 
 (def mini-usb-size [4.2 16 8.5])
 (def teensy-space-size [3.5 52 19])
 (def teensy [teensy-space-size mini-usb-size [0 0 -0.8 1] (partial translate [0 0 0])])
 
+(def pro-micro-mini-space-size [2 40.5 23.5])
+(def pro-micro-mini [pro-micro-mini-space-size mini-usb-size [0 0 -0.8 1] (partial translate [0 0 0])])
+
 (def trrs-port-size [6 16 7])
-(def trrs-space-size [2 14 26])
+(def trrs-space-size [2.5 13 26])
 (def trrs [trrs-space-size trrs-port-size [0 2 -1 0] 
            (fn [it] (->> it
                          (rotate (deg2rad 90) [0 0 1])
@@ -800,12 +803,12 @@
     ))
 
 (spit "things/right.scad"
-      (write-scad (model-right [teensy trrs])))
+      (write-scad (model-right [trrs pro-micro])))
 
 (spit "things/right-port.scad"
       (write-scad (intersection 
-                    (model-right [trrs])
-                    (translate [-120 0 4] (cube 200 30 50))
+                    (model-right [trrs pro-micro])
+                    (translate [-120 30 4] (cube 200 100 50))
                              )))
 
 
@@ -816,7 +819,7 @@
                              )))
 
 (spit "things/left.scad"
-      (write-scad (mirror [-1 0 0] (model-right [trrs2 mcp-io-board]))))
+      (write-scad (mirror [-1 0 0] (model-right [trrs2 pro-micro]))))
 
 (spit "things/left-port.scad"
       (write-scad (intersection 
